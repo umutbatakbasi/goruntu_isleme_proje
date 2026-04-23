@@ -1,5 +1,6 @@
 from utils.image_io import load_image, save_image
 from utils.display import print_image_info
+
 from intensity.grayscale import rgb_to_gray_manual
 from intensity.binary import gray_to_binary_manual
 from intensity.histogram import histogram_manual, print_histogram_summary, plot_histogram
@@ -9,6 +10,7 @@ from intensity.arithmetic import (
     image_subtract_manual,
     image_multiply_manual,
 )
+
 from geometric.flip import flip_horizontal_manual, flip_vertical_manual
 from geometric.crop import crop_manual
 from geometric.resize import resize_nn_manual
@@ -18,6 +20,9 @@ from filters.noise import salt_pepper_noise_manual
 from filters.mean_filter import mean_filter_manual
 from filters.median_filter import median_filter_manual
 from filters.motion_filter import motion_filter_manual
+
+from edge_threshold.double_threshold import double_threshold_manual
+from edge_threshold.canny_like import canny_like_manual
 
 def main():
     input_path = "images/lena.png"
@@ -151,6 +156,44 @@ def main():
         motion_vertical = motion_filter_manual(gray, kernel_size=9, direction="vertical")
         print_image_info(motion_vertical, "Vertical Motion Filter Uygulanmış Görüntü")
         save_image(motion_vertical, "images/lena_motion_vertical.png")
+
+        # 18) Double threshold
+        double_thresh = double_threshold_manual(
+            gray,
+            low_threshold=70,
+            high_threshold=150,
+            weak_value=128,
+            strong_value=255
+        )
+        print_image_info(double_thresh, "Çift Eşiklenmiş Görüntü")
+        save_image(double_thresh, "images/lena_double_threshold.png")
+
+        hist_double = histogram_manual(double_thresh)
+        print_histogram_summary(hist_double)
+        plot_histogram(hist_double, title="Çift Eşikleme Sonrası Histogram")
+
+        # 19) Canny-like edge detection
+        smoothed_img, gradient_mag, canny_like_edges = canny_like_manual(
+            gray,
+            smoothing_kernel_size=3,
+            low_threshold=40,
+            high_threshold=100,
+            weak_value=128,
+            strong_value=255
+        )
+
+        print_image_info(smoothed_img, "Canny-Like: Yumuşatılmış Görüntü")
+        save_image(smoothed_img, "images/lena_canny_smoothed.png")
+
+        print_image_info(gradient_mag, "Canny-Like: Gradient Magnitude")
+        save_image(gradient_mag, "images/lena_canny_gradient.png")
+
+        print_image_info(canny_like_edges, "Canny-Like: Final Kenar Görüntüsü")
+        save_image(canny_like_edges, "images/lena_canny_like_edges.png")
+
+        hist_canny = histogram_manual(canny_like_edges)
+        print_histogram_summary(hist_canny)
+        plot_histogram(hist_canny, title="Canny-Like Final Kenar Histogramı")
 
         print("Tüm mevcut işlemler başarıyla tamamlandı.")
 
