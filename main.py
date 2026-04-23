@@ -1,23 +1,22 @@
 from utils.image_io import load_image, save_image
 from utils.display import print_image_info
+from intensity.grayscale import rgb_to_gray_manual
 
 
 def main():
     input_path = "images/lena.png"
-    output_path = "images/lena_copy.png"
 
-    try:
-        img = load_image(input_path)
+    img = load_image(input_path)
+    print_image_info(img, "Orijinal Görüntü")
 
-        print_image_info(img, title="Yüklenen Görüntü Bilgisi")
+    # Gri dönüşüm
+    gray = rgb_to_gray_manual(img)
+    print_image_info(gray, "Gri Görüntü")
 
-        save_image(img, output_path)
-        print(f"Görüntü başarıyla kaydedildi: {output_path}")
+    # kaydet
+    save_image(gray, "images/lena_gray.png")
 
-    except FileNotFoundError as e:
-        print(f"Hata: {e}")
-    except Exception as e:
-        print(f"Beklenmeyen hata: {e}")
+    print("Gri dönüşüm tamamlandı.")
 
 
 if __name__ == "__main__":
