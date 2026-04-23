@@ -2,6 +2,8 @@ from utils.image_io import load_image, save_image
 from utils.display import print_image_info
 from intensity.grayscale import rgb_to_gray_manual
 from intensity.binary import gray_to_binary_manual
+from intensity.histogram import histogram_manual, print_histogram_summary, plot_histogram
+from intensity.contrast import histogram_stretch_manual, contrast_reduce_manual
 from geometric.flip import flip_horizontal_manual, flip_vertical_manual
 from geometric.crop import crop_manual
 from geometric.resize import resize_nn_manual
@@ -61,7 +63,30 @@ def main():
         print_image_info(rotated_90, "90 Derece Döndürülmüş Görüntü")
         save_image(rotated_90, "images/lena_rotated_90.png")
 
-        print("Gri, binary, flip, crop, resize ve rotate işlemleri tamamlandı.")
+        # 10) Orijinal gri histogram
+        hist_gray = histogram_manual(gray)
+        print_histogram_summary(hist_gray)
+        plot_histogram(hist_gray, title="Orijinal Gri Görüntü Histogramı")
+
+        # 11) Histogram germe
+        stretched = histogram_stretch_manual(gray)
+        print_image_info(stretched, "Histogram Gerilmiş Görüntü")
+        save_image(stretched, "images/lena_stretched.png")
+
+        hist_stretched = histogram_manual(stretched)
+        print_histogram_summary(hist_stretched)
+        plot_histogram(hist_stretched, title="Histogram Gerilmiş Görüntü Histogramı")
+
+        # 12) Kontrast azaltma
+        reduced = contrast_reduce_manual(gray, factor=0.5)
+        print_image_info(reduced, "Kontrastı Azaltılmış Görüntü")
+        save_image(reduced, "images/lena_contrast_reduced.png")
+
+        hist_reduced = histogram_manual(reduced)
+        print_histogram_summary(hist_reduced)
+        plot_histogram(hist_reduced, title="Kontrastı Azaltılmış Görüntü Histogramı")
+
+        print("Tüm mevcut işlemler başarıyla tamamlandı.")
 
     except FileNotFoundError as e:
         print(f"Hata: {e}")
