@@ -14,6 +14,10 @@ from geometric.crop import crop_manual
 from geometric.resize import resize_nn_manual
 from geometric.rotate import rotate_manual
 
+from filters.noise import salt_pepper_noise_manual
+from filters.mean_filter import mean_filter_manual
+from filters.median_filter import median_filter_manual
+from filters.motion_filter import motion_filter_manual
 
 def main():
     input_path = "images/lena.png"
@@ -103,6 +107,50 @@ def main():
         multiplied = image_multiply_manual(img, flipped_h)
         print_image_info(multiplied, "Çarpılmış Görüntü")
         save_image(multiplied, "images/lena_multiplied.png")
+
+        # 14) Salt & Pepper gürültü ekleme
+        noisy = salt_pepper_noise_manual(gray, noise_ratio=0.05)
+        """
+        noisy = salt_pepper_noise_manual(gray, noise_ratio=0.02) Hafif Gürültü
+        noisy = salt_pepper_noise_manual(gray, noise_ratio=0.10) Belirgin Gürültü
+        """
+        print_image_info(noisy, "Salt & Pepper Gürültülü Görüntü")
+        save_image(noisy, "images/lena_salt_pepper.png")
+
+        hist_noisy = histogram_manual(noisy)
+        print_histogram_summary(hist_noisy)
+        plot_histogram(hist_noisy, title="Salt & Pepper Gürültülü Görüntü Histogramı")
+
+        # 15) Mean filter
+        mean_filtered = mean_filter_manual(noisy, kernel_size=3)
+        print_image_info(mean_filtered, "Mean Filter Uygulanmış Görüntü")
+        save_image(mean_filtered, "images/lena_mean_filtered.png")
+
+        hist_mean = histogram_manual(mean_filtered)
+        print_histogram_summary(hist_mean)
+        plot_histogram(hist_mean, title="Mean Filter Sonrası Histogram")
+
+        # 16) Median filter
+        median_filtered = median_filter_manual(noisy, kernel_size=3)
+        print_image_info(median_filtered, "Median Filter Uygulanmış Görüntü")
+        save_image(median_filtered, "images/lena_median_filtered.png")
+
+        hist_median = histogram_manual(median_filtered)
+        print_histogram_summary(hist_median)
+        plot_histogram(hist_median, title="Median Filter Sonrası Histogram")
+
+        # 17) Motion filter
+        motion_horizontal = motion_filter_manual(gray, kernel_size=9, direction="horizontal")
+        print_image_info(motion_horizontal, "Horizontal Motion Filter Uygulanmış Görüntü")
+        save_image(motion_horizontal, "images/lena_motion_horizontal.png")
+
+        hist_motion_h = histogram_manual(motion_horizontal)
+        print_histogram_summary(hist_motion_h)
+        plot_histogram(hist_motion_h, title="Horizontal Motion Filter Sonrası Histogram")
+
+        motion_vertical = motion_filter_manual(gray, kernel_size=9, direction="vertical")
+        print_image_info(motion_vertical, "Vertical Motion Filter Uygulanmış Görüntü")
+        save_image(motion_vertical, "images/lena_motion_vertical.png")
 
         print("Tüm mevcut işlemler başarıyla tamamlandı.")
 
