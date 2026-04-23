@@ -24,6 +24,11 @@ from filters.motion_filter import motion_filter_manual
 from edge_threshold.double_threshold import double_threshold_manual
 from edge_threshold.canny_like import canny_like_manual
 
+from morphology.dilate import dilate_manual
+from morphology.erode import erode_manual
+from morphology.opening import opening_manual
+from morphology.closing import closing_manual
+
 def main():
     input_path = "images/lena.png"
 
@@ -194,6 +199,58 @@ def main():
         hist_canny = histogram_manual(canny_like_edges)
         print_histogram_summary(hist_canny)
         plot_histogram(hist_canny, title="Canny-Like Final Kenar Histogramı")
+
+        # 20) Morphology - Dilation
+        dilated_square = dilate_manual(binary, se_size=3, se_shape="square")
+        print_image_info(dilated_square, "Dilation Uygulanmış Binary Görüntü (Square)")
+        save_image(dilated_square, "images/lena_dilated_square.png")
+
+        hist_dilated = histogram_manual(dilated_square)
+        print_histogram_summary(hist_dilated)
+        plot_histogram(hist_dilated, title="Dilation Sonrası Histogram (Square)")
+
+        dilated_cross = dilate_manual(binary, se_size=3, se_shape="cross")
+        print_image_info(dilated_cross, "Dilation Uygulanmış Binary Görüntü (Cross)")
+        save_image(dilated_cross, "images/lena_dilated_cross.png")
+
+        # 21) Morphology - Erosion
+        eroded_square = erode_manual(binary, se_size=3, se_shape="square")
+        print_image_info(eroded_square, "Erosion Uygulanmış Binary Görüntü (Square)")
+        save_image(eroded_square, "images/lena_eroded_square.png")
+
+        hist_eroded = histogram_manual(eroded_square)
+        print_histogram_summary(hist_eroded)
+        plot_histogram(hist_eroded, title="Erosion Sonrası Histogram (Square)")
+
+        eroded_cross = erode_manual(binary, se_size=3, se_shape="cross")
+        print_image_info(eroded_cross, "Erosion Uygulanmış Binary Görüntü (Cross)")
+        save_image(eroded_cross, "images/lena_eroded_cross.png")
+
+        # 22) Morphology - Opening
+        opened_square = opening_manual(binary, se_size=3, se_shape="square")
+        print_image_info(opened_square, "Opening Uygulanmış Binary Görüntü (Square)")
+        save_image(opened_square, "images/lena_opened_square.png")
+
+        hist_opened = histogram_manual(opened_square)
+        print_histogram_summary(hist_opened)
+        plot_histogram(hist_opened, title="Opening Sonrası Histogram (Square)")
+
+        opened_cross = opening_manual(binary, se_size=3, se_shape="cross")
+        print_image_info(opened_cross, "Opening Uygulanmış Binary Görüntü (Cross)")
+        save_image(opened_cross, "images/lena_opened_cross.png")
+
+        # 23) Morphology - Closing
+        closed_square = closing_manual(binary, se_size=3, se_shape="square")
+        print_image_info(closed_square, "Closing Uygulanmış Binary Görüntü (Square)")
+        save_image(closed_square, "images/lena_closed_square.png")
+
+        hist_closed = histogram_manual(closed_square)
+        print_histogram_summary(hist_closed)
+        plot_histogram(hist_closed, title="Closing Sonrası Histogram (Square)")
+
+        closed_cross = closing_manual(binary, se_size=3, se_shape="cross")
+        print_image_info(closed_cross, "Closing Uygulanmış Binary Görüntü (Cross)")
+        save_image(closed_cross, "images/lena_closed_cross.png")
 
         print("Tüm mevcut işlemler başarıyla tamamlandı.")
 
