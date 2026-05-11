@@ -1,0 +1,44 @@
+goruntu_isleme_proje/
+│
+├── main.py
+├── ui.py
+├── requirements.txt
+│
+├── utils/
+│   ├── image_io.py
+│   ├── display.py
+│   └── helpers.py
+│
+├── geometric/
+│   ├── flip.py
+│   ├── rotate.py
+│   ├── crop.py
+│   └── resize.py
+│
+├── intensity/
+│   ├── grayscale.py
+│   ├── binary.py
+│   ├── histogram.py
+│   ├── contrast.py
+│   └── arithmetic.py
+│
+├── filters/
+│   ├── mean_filter.py
+│   ├── median_filter.py
+│   ├── motion_filter.py
+│   └── noise.py
+│
+├── edge_threshold/
+│   ├── double_threshold.py
+│   └── canny_like.py
+│
+├── morphology/
+│   ├── dilate.py
+│   ├── erode.py
+│   ├── opening.py
+│   └── closing.py
+│
+└── images/
+    ├── test1.png
+    ├── test2.png
+    └── lena.png
