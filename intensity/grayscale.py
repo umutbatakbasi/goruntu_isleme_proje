@@ -24,7 +24,7 @@ def rgb_to_gray_manual(img: np.ndarray) -> np.ndarray:
 
     for i in range(h):
         for j in range(w):
-            r = int(img[i, j, 0])
+            r = int(img[i, j, 0]) #img dizisinin 3. elemani kanali belirtir
             g = int(img[i, j, 1])
             b = int(img[i, j, 2])
 

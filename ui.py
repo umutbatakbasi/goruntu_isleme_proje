@@ -13,6 +13,15 @@ from intensity.arithmetic import (
     image_subtract_manual,
     image_multiply_manual,
 )
+from intensity.color_convert import (
+    rgb_to_hsi_manual,
+    hsi_to_rgb_manual,
+    rgb_to_xyz_manual,
+    rgb_to_luv_manual,
+    xyz_to_luv_manual,
+    luv_to_xyz_manual,
+    normalize_for_display,
+)
 from geometric.flip import flip_horizontal_manual, flip_vertical_manual
 from geometric.crop import crop_manual
 from geometric.resize import resize_nn_manual
@@ -28,114 +37,182 @@ from morphology.erode import erode_manual
 from morphology.opening import opening_manual
 from morphology.closing import closing_manual
 
+# ── Renk Paleti ──
+BG = "#1e1e2e"
+SURFACE = "#2d2d44"
+SURFACE2 = "#383854"
+ACCENT = "#7c3aed"
+ACCENT_HOVER = "#9333ea"
+TEXT = "#e2e8f0"
+TEXT_DIM = "#94a3b8"
+BORDER = "#4a4a6a"
+SUCCESS = "#22c55e"
+ERROR = "#ef4444"
+
+CATEGORIES = {
+    "🎨 Renk Dönüşümleri": [
+        "RGB -> Gray", "Gray -> Binary",
+        "RGB -> HSI", "HSI -> RGB",
+        "RGB -> CIE XYZ", "RGB -> CIE Luv",
+        "CIE XYZ -> CIE Luv", "CIE Luv -> CIE XYZ",
+    ],
+    "📐 Geometrik": [
+        "Flip Horizontal", "Flip Vertical",
+        "Crop", "Resize", "Rotate",
+    ],
+    "💡 Yoğunluk": [
+        "Histogram Stretch", "Contrast Reduce",
+        "Add Images", "Subtract Images", "Multiply Images",
+    ],
+    "🔧 Filtreler": [
+        "Salt & Pepper Noise", "Mean Filter",
+        "Median Filter", "Motion Filter",
+    ],
+    "🔍 Kenar / Eşik": [
+        "Double Threshold", "Canny Like",
+    ],
+    "🔲 Morfoloji": [
+        "Dilate", "Erode", "Opening", "Closing",
+    ],
+}
+
 
 class ImageProcessingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Görüntü İşleme Projesi")
-        self.root.geometry("1400x800")
+        self.root.geometry("1500x900")
+        self.root.configure(bg=BG)
+        self.root.minsize(1200, 700)
 
         self.original_image = None
         self.second_image = None
         self.result_image = None
+        self.last_float_result = None  # HSI/XYZ/Luv float sonuçları için
 
         self.original_photo = None
         self.result_photo = None
 
+        self._setup_styles()
         self.build_ui()
 
+    def _setup_styles(self):
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        style.configure(".", background=BG, foreground=TEXT, fieldbackground=SURFACE)
+        style.configure("TLabel", background=BG, foreground=TEXT, font=("Segoe UI", 10))
+        style.configure("TLabelframe", background=BG, foreground=ACCENT, font=("Segoe UI", 11, "bold"))
+        style.configure("TLabelframe.Label", background=BG, foreground=ACCENT)
+        style.configure("TCombobox", fieldbackground=SURFACE, background=SURFACE2,
+                         foreground=TEXT, selectbackground=ACCENT, font=("Segoe UI", 10))
+        style.configure("TEntry", fieldbackground=SURFACE, foreground=TEXT, font=("Segoe UI", 10))
+        style.configure("Accent.TButton", background=ACCENT, foreground="white",
+                         font=("Segoe UI", 10, "bold"), padding=(12, 6))
+        style.map("Accent.TButton",
+                  background=[("active", ACCENT_HOVER), ("pressed", "#6d28d9")])
+        style.configure("TButton", background=SURFACE2, foreground=TEXT,
+                         font=("Segoe UI", 10), padding=(10, 5))
+        style.map("TButton",
+                  background=[("active", BORDER)])
+        style.configure("TFrame", background=BG)
+
     def build_ui(self):
-        top_frame = tk.Frame(self.root, pady=10)
-        top_frame.pack(fill="x")
+        # ── Üst Buton Çubuğu ──
+        top_frame = ttk.Frame(self.root)
+        top_frame.pack(fill="x", padx=15, pady=(12, 6))
 
-        tk.Button(top_frame, text="1. Görüntü Yükle", command=self.load_first_image, width=18).pack(side="left", padx=5)
-        tk.Button(top_frame, text="2. Görüntü Yükle", command=self.load_second_image, width=18).pack(side="left", padx=5)
-        tk.Button(top_frame, text="Sonucu Kaydet", command=self.save_result, width=18).pack(side="left", padx=5)
-        tk.Button(top_frame, text="Histogram Göster", command=self.show_histogram, width=18).pack(side="left", padx=5)
+        ttk.Button(top_frame, text="📂 1. Görüntü Yükle", command=self.load_first_image,
+                   style="TButton").pack(side="left", padx=4)
+        ttk.Button(top_frame, text="📂 2. Görüntü Yükle", command=self.load_second_image,
+                   style="TButton").pack(side="left", padx=4)
+        ttk.Button(top_frame, text="💾 Sonucu Kaydet", command=self.save_result,
+                   style="TButton").pack(side="left", padx=4)
+        ttk.Button(top_frame, text="📊 Histogram Göster", command=self.show_histogram,
+                   style="TButton").pack(side="left", padx=4)
 
-        control_frame = tk.LabelFrame(self.root, text="İşlem Kontrol Paneli", padx=10, pady=10)
-        control_frame.pack(fill="x", padx=10, pady=10)
+        # ── Kontrol Paneli ──
+        control_frame = ttk.LabelFrame(self.root, text="  İşlem Kontrol Paneli  ", padding=12)
+        control_frame.pack(fill="x", padx=15, pady=6)
 
-        tk.Label(control_frame, text="İşlem Seç:").grid(row=0, column=0, sticky="w")
+        # Kategori
+        ttk.Label(control_frame, text="Kategori:").grid(row=0, column=0, sticky="w", padx=4, pady=4)
+        self.category_var = tk.StringVar()
+        self.category_menu = ttk.Combobox(control_frame, textvariable=self.category_var,
+                                           width=22, state="readonly",
+                                           values=list(CATEGORIES.keys()))
+        self.category_menu.grid(row=0, column=1, padx=4, pady=4)
+        self.category_menu.current(0)
+        self.category_menu.bind("<<ComboboxSelected>>", self._on_category_change)
 
+        # İşlem
+        ttk.Label(control_frame, text="İşlem:").grid(row=0, column=2, sticky="w", padx=4, pady=4)
         self.operation_var = tk.StringVar()
-        self.operation_menu = ttk.Combobox(
-            control_frame,
-            textvariable=self.operation_var,
-            width=35,
-            state="readonly",
-            values=[
-                "RGB -> Gray",
-                "Gray -> Binary",
-                "Flip Horizontal",
-                "Flip Vertical",
-                "Crop",
-                "Resize",
-                "Rotate",
-                "Histogram Stretch",
-                "Contrast Reduce",
-                "Add Images",
-                "Subtract Images",
-                "Multiply Images",
-                "Salt & Pepper Noise",
-                "Mean Filter",
-                "Median Filter",
-                "Motion Filter",
-                "Double Threshold",
-                "Canny Like",
-                "Dilate",
-                "Erode",
-                "Opening",
-                "Closing",
-            ],
-        )
-        self.operation_menu.grid(row=0, column=1, padx=5, pady=5)
-        self.operation_menu.current(0)
+        self.operation_menu = ttk.Combobox(control_frame, textvariable=self.operation_var,
+                                            width=28, state="readonly")
+        self.operation_menu.grid(row=0, column=3, padx=4, pady=4)
+        self._on_category_change()
 
-        tk.Label(control_frame, text="Parametre 1:").grid(row=1, column=0, sticky="w")
-        self.param1_entry = tk.Entry(control_frame, width=20)
-        self.param1_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        # Parametreler
+        ttk.Label(control_frame, text="Parametre 1:").grid(row=1, column=0, sticky="w", padx=4, pady=4)
+        self.param1_entry = ttk.Entry(control_frame, width=18)
+        self.param1_entry.grid(row=1, column=1, sticky="w", padx=4, pady=4)
 
-        tk.Label(control_frame, text="Parametre 2:").grid(row=1, column=2, sticky="w")
-        self.param2_entry = tk.Entry(control_frame, width=20)
-        self.param2_entry.grid(row=1, column=3, sticky="w", padx=5, pady=5)
+        ttk.Label(control_frame, text="Parametre 2:").grid(row=1, column=2, sticky="w", padx=4, pady=4)
+        self.param2_entry = ttk.Entry(control_frame, width=18)
+        self.param2_entry.grid(row=1, column=3, sticky="w", padx=4, pady=4)
 
-        tk.Label(control_frame, text="Parametre 3:").grid(row=2, column=0, sticky="w")
-        self.param3_entry = tk.Entry(control_frame, width=20)
-        self.param3_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
+        ttk.Label(control_frame, text="Parametre 3:").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        self.param3_entry = ttk.Entry(control_frame, width=18)
+        self.param3_entry.grid(row=2, column=1, sticky="w", padx=4, pady=4)
 
-        tk.Label(control_frame, text="Yapısal Eleman / Yön:").grid(row=2, column=2, sticky="w")
-        self.option_entry = tk.Entry(control_frame, width=20)
-        self.option_entry.grid(row=2, column=3, sticky="w", padx=5, pady=5)
+        ttk.Label(control_frame, text="Yapısal Eleman / Yön:").grid(row=2, column=2, sticky="w", padx=4, pady=4)
+        self.option_entry = ttk.Entry(control_frame, width=18)
+        self.option_entry.grid(row=2, column=3, sticky="w", padx=4, pady=4)
 
-        tk.Button(control_frame, text="İşlemi Uygula", command=self.apply_operation, width=20).grid(
-            row=3, column=0, columnspan=2, pady=10
-        )
+        btn_frame = ttk.Frame(control_frame)
+        btn_frame.grid(row=3, column=0, columnspan=4, pady=10)
 
-        tk.Button(control_frame, text="Parametre Yardımı", command=self.show_help, width=20).grid(
-            row=3, column=2, columnspan=2, pady=10
-        )
+        ttk.Button(btn_frame, text="▶  İşlemi Uygula", command=self.apply_operation,
+                   style="Accent.TButton").pack(side="left", padx=8)
+        ttk.Button(btn_frame, text="❓ Parametre Yardımı", command=self.show_help,
+                   style="TButton").pack(side="left", padx=8)
 
-        image_frame = tk.Frame(self.root)
-        image_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # ── Görüntü Panelleri ──
+        image_frame = ttk.Frame(self.root)
+        image_frame.pack(fill="both", expand=True, padx=15, pady=6)
 
-        left_frame = tk.LabelFrame(image_frame, text="Orijinal Görüntü", padx=10, pady=10)
-        left_frame.pack(side="left", fill="both", expand=True, padx=5)
-
-        self.original_label = tk.Label(left_frame, text="Görüntü yüklenmedi")
+        left_frame = ttk.LabelFrame(image_frame, text="  Orijinal Görüntü  ", padding=8)
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        self.original_label = tk.Label(left_frame, text="Görüntü yüklenmedi",
+                                        bg=SURFACE, fg=TEXT_DIM, font=("Segoe UI", 11))
         self.original_label.pack(fill="both", expand=True)
 
-        right_frame = tk.LabelFrame(image_frame, text="Sonuç Görüntüsü", padx=10, pady=10)
-        right_frame.pack(side="left", fill="both", expand=True, padx=5)
-
-        self.result_label = tk.Label(right_frame, text="Henüz işlem uygulanmadı")
+        right_frame = ttk.LabelFrame(image_frame, text="  Sonuç Görüntüsü  ", padding=8)
+        right_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
+        self.result_label = tk.Label(right_frame, text="Henüz işlem uygulanmadı",
+                                      bg=SURFACE, fg=TEXT_DIM, font=("Segoe UI", 11))
         self.result_label.pack(fill="both", expand=True)
 
-        info_frame = tk.LabelFrame(self.root, text="Bilgi", padx=10, pady=10)
-        info_frame.pack(fill="x", padx=10, pady=10)
+        # ── Bilgi Paneli ──
+        info_frame = ttk.LabelFrame(self.root, text="  Bilgi  ", padding=6)
+        info_frame.pack(fill="x", padx=15, pady=(6, 12))
 
-        self.info_text = tk.Text(info_frame, height=8)
+        scroll = tk.Scrollbar(info_frame)
+        scroll.pack(side="right", fill="y")
+
+        self.info_text = tk.Text(info_frame, height=6, bg=SURFACE, fg=TEXT,
+                                  insertbackground=TEXT, font=("Consolas", 9),
+                                  relief="flat", yscrollcommand=scroll.set)
         self.info_text.pack(fill="x")
+        scroll.config(command=self.info_text.yview)
+
+    def _on_category_change(self, event=None):
+        cat = self.category_var.get()
+        ops = CATEGORIES.get(cat, [])
+        self.operation_menu["values"] = ops
+        if ops:
+            self.operation_menu.current(0)
 
     def log(self, text):
         self.info_text.insert(tk.END, text + "\n")
@@ -148,11 +225,10 @@ class ImageProcessingApp:
         )
         if not path:
             return
-
         try:
             self.original_image = load_image(path)
             self.display_image(self.original_image, self.original_label, is_original=True)
-            self.log(f"1. görüntü yüklendi: {path}")
+            self.log(f"✅ 1. görüntü yüklendi: {path}")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
 
@@ -163,10 +239,9 @@ class ImageProcessingApp:
         )
         if not path:
             return
-
         try:
             self.second_image = load_image(path)
-            self.log(f"2. görüntü yüklendi: {path}")
+            self.log(f"✅ 2. görüntü yüklendi: {path}")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
 
@@ -174,17 +249,15 @@ class ImageProcessingApp:
         if self.result_image is None:
             messagebox.showwarning("Uyarı", "Kaydedilecek sonuç görüntüsü yok.")
             return
-
         path = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[("PNG", "*.png"), ("JPEG", "*.jpg"), ("BMP", "*.bmp")],
         )
         if not path:
             return
-
         try:
             save_image(self.result_image, path)
-            self.log(f"Sonuç kaydedildi: {path}")
+            self.log(f"💾 Sonuç kaydedildi: {path}")
             messagebox.showinfo("Başarılı", "Sonuç görüntüsü kaydedildi.")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
@@ -193,32 +266,26 @@ class ImageProcessingApp:
         if self.result_image is None:
             messagebox.showwarning("Uyarı", "Önce bir sonuç üretmelisin.")
             return
-
         if len(self.result_image.shape) != 2:
             messagebox.showwarning("Uyarı", "Histogram için gri seviyeli sonuç görüntüsü gerekli.")
             return
-
         try:
             hist = histogram_manual(self.result_image)
             plot_histogram(hist, title="Sonuç Görüntüsü Histogramı")
-            self.log("Histogram gösterildi.")
+            self.log("📊 Histogram gösterildi.")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
 
     def display_image(self, img, target_label, is_original=False):
         display_img = img.copy()
-
         if len(display_img.shape) == 2:
             pil_img = Image.fromarray(display_img.astype(np.uint8))
         else:
             pil_img = Image.fromarray(display_img.astype(np.uint8))
-
         pil_img.thumbnail((600, 500))
         photo = ImageTk.PhotoImage(pil_img)
-
         target_label.config(image=photo, text="")
         target_label.image = photo
-
         if is_original:
             self.original_photo = photo
         else:
@@ -242,6 +309,8 @@ class ImageProcessingApp:
             return
 
         op = self.operation_var.get()
+        saved_float = self.last_float_result
+        self.last_float_result = None
 
         try:
             if op == "RGB -> Gray":
@@ -251,6 +320,46 @@ class ImageProcessingApp:
                 threshold = self.get_int_param(self.param1_entry, 128)
                 gray = self.ensure_grayscale(self.original_image)
                 self.result_image = gray_to_binary_manual(gray, threshold)
+
+            elif op == "RGB -> HSI":
+                hsi = rgb_to_hsi_manual(self.original_image)
+                self.last_float_result = hsi
+                self.result_image = normalize_for_display(hsi)
+
+            elif op == "HSI -> RGB":
+                if saved_float is not None:
+                    self.result_image = hsi_to_rgb_manual(saved_float)
+                else:
+                    messagebox.showinfo("Bilgi", "Önce 'RGB -> HSI' uygulayın, ardından bu işlemi seçin.")
+                    return
+
+            elif op == "RGB -> CIE XYZ":
+                xyz = rgb_to_xyz_manual(self.original_image)
+                self.last_float_result = xyz
+                self.result_image = normalize_for_display(xyz)
+
+            elif op == "RGB -> CIE Luv":
+                luv = rgb_to_luv_manual(self.original_image)
+                self.last_float_result = luv
+                self.result_image = normalize_for_display(luv)
+
+            elif op == "CIE XYZ -> CIE Luv":
+                if self.last_float_result is not None and self.last_float_result.shape[2] == 3:
+                    xyz = self.last_float_result
+                else:
+                    xyz = rgb_to_xyz_manual(self.original_image)
+                luv = xyz_to_luv_manual(xyz)
+                self.last_float_result = luv
+                self.result_image = normalize_for_display(luv)
+
+            elif op == "CIE Luv -> CIE XYZ":
+                if self.last_float_result is not None and self.last_float_result.shape[2] == 3:
+                    luv = self.last_float_result
+                else:
+                    luv = rgb_to_luv_manual(self.original_image)
+                xyz = luv_to_xyz_manual(luv)
+                self.last_float_result = xyz
+                self.result_image = normalize_for_display(xyz)
 
             elif op == "Flip Horizontal":
                 self.result_image = flip_horizontal_manual(self.original_image)
@@ -328,10 +437,8 @@ class ImageProcessingApp:
                 smooth_k = self.get_int_param(self.param3_entry, 3)
                 gray = self.ensure_grayscale(self.original_image)
                 _, _, edges = canny_like_manual(
-                    gray,
-                    smoothing_kernel_size=smooth_k,
-                    low_threshold=low_t,
-                    high_threshold=high_t,
+                    gray, smoothing_kernel_size=smooth_k,
+                    low_threshold=low_t, high_threshold=high_t,
                 )
                 self.result_image = edges
 
@@ -364,11 +471,11 @@ class ImageProcessingApp:
                 return
 
             self.display_image(self.result_image, self.result_label, is_original=False)
-            self.log(f"İşlem uygulandı: {op}")
+            self.log(f"✅ İşlem uygulandı: {op}")
 
         except Exception as e:
             messagebox.showerror("Hata", str(e))
-            self.log(f"Hata: {str(e)}")
+            self.log(f"❌ Hata: {str(e)}")
 
     def ensure_grayscale(self, img):
         if len(img.shape) == 2:
@@ -387,51 +494,35 @@ class ImageProcessingApp:
         help_text = """
 Parametre Yardımı
 
-RGB -> Gray
-- Parametre gerekmez
+── Renk Dönüşümleri ──
+RGB -> Gray         : Parametre gerekmez
+Gray -> Binary      : P1 = threshold (örn: 128)
+RGB -> HSI          : Parametre gerekmez
+HSI -> RGB          : Önce RGB->HSI uygulayın
+RGB -> CIE XYZ     : Parametre gerekmez
+RGB -> CIE Luv     : Parametre gerekmez
+CIE XYZ -> CIE Luv : Önce RGB->XYZ uygulayın
+CIE Luv -> CIE XYZ : Önce RGB->Luv uygulayın
 
-Gray -> Binary
-- Parametre 1: threshold (örnek: 128)
+── Geometrik ──
+Crop    : P1=x1, P2=y1, P3=x2, Yön=y2
+Resize  : P1 = scale (örn: 0.5, 1.5)
+Rotate  : P1 = angle (örn: 30, -45)
 
-Crop
-- Parametre 1: x1
-- Parametre 2: y1
-- Parametre 3: x2
-- Yapısal Eleman / Yön: y2
+── Yoğunluk ──
+Contrast Reduce : P1 = factor (0-1 arası)
 
-Resize
-- Parametre 1: scale (örnek: 0.5 veya 1.5)
+── Filtreler ──
+Salt & Pepper   : P1 = noise ratio (örn: 0.05)
+Mean/Median     : P1 = kernel size (3, 5, 7)
+Motion Filter   : P1 = kernel size, Yön = horizontal/vertical/diag_main/diag_anti
 
-Rotate
-- Parametre 1: angle (örnek: 30, -45)
+── Kenar / Eşik ──
+Double Threshold : P1 = low, P2 = high
+Canny Like       : P1 = low, P2 = high, P3 = smooth kernel
 
-Contrast Reduce
-- Parametre 1: factor (0 ile 1 arası)
-
-Salt & Pepper Noise
-- Parametre 1: noise ratio (örnek: 0.05)
-
-Mean / Median Filter
-- Parametre 1: kernel size (3, 5, 7)
-
-Motion Filter
-- Parametre 1: kernel size
-- Yapısal Eleman / Yön:
-  horizontal / vertical / diag_main / diag_anti
-
-Double Threshold
-- Parametre 1: low threshold
-- Parametre 2: high threshold
-
-Canny Like
-- Parametre 1: low threshold
-- Parametre 2: high threshold
-- Parametre 3: smoothing kernel size
-
-Dilate / Erode / Opening / Closing
-- Parametre 1: structuring element size
-- Yapısal Eleman / Yön:
-  square / cross
+── Morfoloji ──
+Dilate/Erode/Opening/Closing : P1 = SE size, Yön = square/cross
 """
         messagebox.showinfo("Parametre Yardımı", help_text)
 
